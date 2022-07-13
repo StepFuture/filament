@@ -40,7 +40,7 @@ bool OpenGLContext::queryOpenGLVersion(GLint* major, GLint* minor) noexcept {
 OpenGLContext::OpenGLContext() noexcept {
     state.vao.p = &mDefaultVAO;
 
-    // There query work with all GL/GLES versions!
+    // These query work with all GL/GLES versions!
     state.vendor   = (char const*)glGetString(GL_VENDOR);
     state.renderer = (char const*)glGetString(GL_RENDERER);
     state.version  = (char const*)glGetString(GL_VERSION);
@@ -55,27 +55,57 @@ OpenGLContext::OpenGLContext() noexcept {
 
     queryOpenGLVersion(&state.major, &state.minor);
 
+    glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &gets.max_renderbuffer_size);
+    glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &gets.max_uniform_block_size);
+    glGetIntegerv(GL_MAX_SAMPLES, &gets.max_samples);
+    glGetIntegerv(GL_MAX_DRAW_BUFFERS, &gets.max_draw_buffers);
+    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &gets.max_texture_image_units);
+    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &gets.uniform_buffer_offset_alignment);
+
     if constexpr (BACKEND_OPENGL_VERSION == BACKEND_OPENGL_VERSION_GLES) {
-        // This works on all versions of GLES
-        if (state.major == 3 && state.minor >= 0) {
-            mShaderModel = ShaderModel::GL_ES_30;
-        }
-        if (state.major == 3 && state.minor >= 1) {
-            features.multisample_texture = true;
-        }
         initExtensionsGLES();
+        if (state.major == 3) {
+            assert_invariant(gets.max_texture_image_units >= 16);
+            if (state.minor >= 0) {
+                mShaderModel = ShaderModel::GL_ES_30;
+            }
+            if (state.minor >= 1) {
+                features.multisample_texture = true;
+                // figure out our feature level
+                if (gets.max_texture_image_units >= 31) {
+                    // TODO: also check for cubemap arrays
+                    mFeatureLevel = FeatureLevel::FEATURE_LEVEL_2;
+                }
+            }
+        }
     } else if constexpr (BACKEND_OPENGL_VERSION == BACKEND_OPENGL_VERSION_GL) {
         // OpenGL version
-        if (state.major == 4 && state.minor >= 1) {
-            mShaderModel = ShaderModel::GL_CORE_41;
+        initExtensionsGL();
+        if (state.major == 4) {
+            if (state.minor >= 1) {
+                mShaderModel = ShaderModel::GL_CORE_41;
+            }
+            if (state.minor >= 3) {
+                // figure out our feature level
+                if (gets.max_texture_image_units >= 31) {
+                    // TODO: also check for cubemap arrays
+                    mFeatureLevel = FeatureLevel::FEATURE_LEVEL_2;
+                }
+            }
+            features.multisample_texture = true;
         }
-        features.multisample_texture = true;
         // feedback loops are allowed on GL desktop as long as writes are disabled
         bugs.allow_read_only_ancillary_feedback_loop = true;
-        initExtensionsGL();
+        assert_invariant(gets.max_texture_image_units >= 16);
     }
 
     assert_invariant(mShaderModel != ShaderModel::UNKNOWN);
+
+#ifdef GL_EXT_texture_filter_anisotropic
+    if (ext.EXT_texture_filter_anisotropic) {
+        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &gets.max_anisotropy);
+    }
+#endif
 
     /*
      * Figure out which driver bugs we need to workaround
@@ -194,18 +224,6 @@ OpenGLContext::OpenGLContext() noexcept {
     }
     flush(slog.v);
 
-    // now we can query getter and features
-    glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &gets.max_renderbuffer_size);
-    glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &gets.max_uniform_block_size);
-    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &gets.uniform_buffer_offset_alignment);
-    glGetIntegerv(GL_MAX_SAMPLES, &gets.max_samples);
-    glGetIntegerv(GL_MAX_DRAW_BUFFERS, &gets.max_draw_buffers);
-#ifdef GL_EXT_texture_filter_anisotropic
-    if (ext.EXT_texture_filter_anisotropic) {
-        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &gets.max_anisotropy);
-    }
-#endif
-
     assert_invariant(gets.max_draw_buffers >= 4); // minspec
 
 #ifndef NDEBUG
@@ -215,6 +233,7 @@ OpenGLContext::OpenGLContext() noexcept {
             << "GL_MAX_SAMPLES = " << gets.max_samples << '\n'
             << "GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT = " << gets.max_anisotropy << '\n'
             << "GL_MAX_UNIFORM_BLOCK_SIZE = " << gets.max_uniform_block_size << '\n'
+            << "GL_MAX_TEXTURE_IMAGE_UNITS = " << gets.max_texture_image_units << '\n'
             << "GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT = " << gets.uniform_buffer_offset_alignment << '\n'
             ;
     flush(slog.v);

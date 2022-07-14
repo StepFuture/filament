@@ -60,7 +60,7 @@ static_assert(MAX_VERTEX_BUFFER_COUNT <= MAX_VERTEX_ATTRIBUTE_COUNT,
 static constexpr size_t CONFIG_BINDING_COUNT = 12;  // This is guaranteed by OpenGL ES.
 
 /**
- * Defines the backend's feature levels
+ * Defines the backend's feature levels.
  */
 enum class FeatureLevel : uint8_t {
     FEATURE_LEVEL_0,    //!< Reserved, don't use

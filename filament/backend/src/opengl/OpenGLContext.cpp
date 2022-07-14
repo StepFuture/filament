@@ -40,7 +40,7 @@ bool OpenGLContext::queryOpenGLVersion(GLint* major, GLint* minor) noexcept {
 OpenGLContext::OpenGLContext() noexcept {
     state.vao.p = &mDefaultVAO;
 
-    // These query work with all GL/GLES versions!
+    // These queries work with all GL/GLES versions!
     state.vendor   = (char const*)glGetString(GL_VENDOR);
     state.renderer = (char const*)glGetString(GL_RENDERER);
     state.version  = (char const*)glGetString(GL_VERSION);

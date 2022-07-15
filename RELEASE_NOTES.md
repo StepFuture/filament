@@ -6,7 +6,7 @@ A new header is inserted each time a *tag* is created.
 ## main branch
 - engine: Fix Adreno gpu crash introduced by gpu morph target change 
 - engine: Add optional memory configuration parameters to Engine initialization
-
+- backend: streamline texture upload APIs [⚠️ **API Change**]
 
 ## v1.25.2
 
